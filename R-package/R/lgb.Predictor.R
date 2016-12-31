@@ -28,14 +28,14 @@ lgb.Predictor.check <- function(bst) {
   }
   isnull <- is.null(bst$handle)
   if (!isnull) {
-    isnull <- .Call("LGBMCheckNullPtr_R", bst$handle, PACKAGE="lightgbm")
+    isnull <- .Call("LGBM_CheckNullPtr_R", bst$handle, PACKAGE="lightgbm")
   }
   return(bst)
 }
 
 # internal utility function
-predict.lgb.Predictor <- function(object, data, 
-  num_iteration = NULL, rawscore = FALSE, predleaf = FALSE, header=FALSE, 
+lgb.Predictor.predict <- function(object, data, 
+  num_iteration = NULL, rawscore = FALSE, predleaf = FALSE, header = FALSE, 
   reshape = FALSE, ...) {
 
   if (is.null(num_iteration)) {
@@ -82,8 +82,8 @@ predict.lgb.Predictor <- function(object, data,
 }
 
 # internal utility function
-predict.lgb.Booster.handle <- function(object, ...) {
+lgb.Booster.handle.predict <- function(object, ...) {
   bst <- lgb.handleToPredictor(object)
-  ret <- predict(bst, ...)
+  ret <- lgb.Predictor.predict(bst, ...)
   return(ret)
 }

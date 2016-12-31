@@ -36,8 +36,20 @@
 
 using namespace LightGBM;
 
-SEXP LGBMCheckNullPtr_R(SEXP handle) {
+SEXP LGBM_CheckNullPtr_R(SEXP handle) {
   return ScalarLogical(R_ExternalPtrAddr(handle) == NULL);
+}
+
+void* TO_CPP_POINTER(SEXP handle){
+  if (handle == R_NilValue) {
+    return nullptr;
+  }
+  auto ptr = R_ExternalPtrAddr(handle);
+  if (ptr == NULL) {
+    return nullptr;
+  } else {
+    return ptr;
+  }
 }
 
 void _DatasetFinalizer(SEXP ext) {
@@ -53,7 +65,7 @@ SEXP LGBM_DatasetCreateFromFile_R(SEXP filename, SEXP parameters, SEXP reference
   R_API_BEGIN();
   DatasetHandle handle;
   CHECK_CALL(LGBM_DatasetCreateFromFile(CHAR(asChar(filename)), CHAR(asChar(parameters)), 
-    R_ExternalPtrAddr(reference), &handle));
+    TO_CPP_POINTER(reference), &handle));
   ret = PROTECT(R_MakeExternalPtr(handle, R_NilValue, R_NilValue));
   R_RegisterCFinalizerEx(ret, _DatasetFinalizer, TRUE);
   R_API_END();
@@ -80,7 +92,7 @@ SEXP LGBM_DatasetCreateFromCSC_R(SEXP indptr,
   DatasetHandle handle;
   CHECK_CALL(LGBM_DatasetCreateFromCSC(p_indptr, C_API_DTYPE_INT32, p_indices,
     p_data, C_API_DTYPE_FLOAT64, nindptr, ndata,
-    nrow, CHAR(asChar(parameters)), R_ExternalPtrAddr(reference), &handle));
+    nrow, CHAR(asChar(parameters)), TO_CPP_POINTER(reference), &handle));
   ret = PROTECT(R_MakeExternalPtr(handle, R_NilValue, R_NilValue));
   R_RegisterCFinalizerEx(ret, _DatasetFinalizer, TRUE);
   R_API_END();
@@ -99,7 +111,7 @@ SEXP LGBM_DatasetCreateFromMat_R(SEXP mat,
   double* p_mat = REAL(mat);
   DatasetHandle handle;
   CHECK_CALL(LGBM_DatasetCreateFromMat(p_mat, C_API_DTYPE_FLOAT64, nrow, ncol, COL_MAJOR,
-    CHAR(asChar(parameters)), R_ExternalPtrAddr(reference), &handle));
+    CHAR(asChar(parameters)), TO_CPP_POINTER(reference), &handle));
   ret = PROTECT(R_MakeExternalPtr(handle, R_NilValue, R_NilValue));
   R_RegisterCFinalizerEx(ret, _DatasetFinalizer, TRUE);
   R_API_END();
@@ -136,6 +148,7 @@ SEXP LGBM_DatasetSetFeatureNames_R(SEXP handle,
   std::vector<std::string> vec_names;
   std::vector<const char*> vec_sptr;
   int64_t len = static_cast<int64_t>(length(feature_names));
+  error("len %d", len);
   for (int i = 0; i < len; ++i) {
     vec_names.push_back(std::string(CHAR(asChar(VECTOR_ELT(feature_names, i)))));
   }

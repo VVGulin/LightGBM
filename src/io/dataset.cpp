@@ -108,7 +108,7 @@ bool Dataset::GetFloatField(const char* field_name, int64_t* out_len, const floa
     *out_len = num_data_;
   } else if (name == std::string("init_score")) {
     *out_ptr = metadata_.init_score();
-    *out_len = num_data_;
+    *out_len = metadata_.num_init_score();
   } else {
     return false;
   }

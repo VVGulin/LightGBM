@@ -13,7 +13,7 @@
 * \param handle
 * \return whether it is null ptr
 */
-DllExport SEXP LGBMCheckNullPtr_R(SEXP handle);
+DllExport SEXP LGBM_CheckNullPtr_R(SEXP handle);
 
 
 // --- start Dataset interface
