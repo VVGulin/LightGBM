@@ -148,7 +148,6 @@ SEXP LGBM_DatasetSetFeatureNames_R(SEXP handle,
   std::vector<std::string> vec_names;
   std::vector<const char*> vec_sptr;
   int64_t len = static_cast<int64_t>(length(feature_names));
-  error("len %d", len);
   for (int i = 0; i < len; ++i) {
     vec_names.push_back(std::string(CHAR(asChar(VECTOR_ELT(feature_names, i)))));
   }
