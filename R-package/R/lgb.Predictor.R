@@ -1,4 +1,5 @@
-Predictor <- R6Class("lgb.Predictor",
+Predictor <- R6Class(
+  "lgb.Predictor",
   public = list(
     handle = NULL,
     initialize = function(modelfile) {

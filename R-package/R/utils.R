@@ -19,6 +19,7 @@ lgb.params2str <- function(params, ...) {
     pair <- paste0(c(key, val), collapse="=")
     ret <- c(ret, pair)
   }
+  
   return(paste0(ret, collapse=" "))
 }
 
