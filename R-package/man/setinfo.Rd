@@ -18,6 +18,9 @@ setinfo(object, ...)
 
 \item{info}{the specific field of information to set}
 }
+\value{
+passed object
+}
 \description{
 Set information of an lgb.Dataset object
 }

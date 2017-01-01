@@ -435,6 +435,7 @@ construct.lgb.Dataset <- function(dataset) {
 #' Returns a vector of numbers of rows and of columns in an \code{lgb.Dataset}.
 #' @param object Object of class \code{lgb.Dataset}
 #' @param ... other parameters
+#' @return a vector of numbers of rows and of columns
 #'
 #' @details
 #' Note: since \code{nrow} and \code{ncol} internally use \code{dim}, they can also
@@ -458,6 +459,7 @@ dim.lgb.Dataset <- function(dataset, ...) {
 #' Get column names of \code{lgb.Dataset}
 #' @param dataset object of class \code{lgb.Dataset}
 #' @param ... other parameters
+#' @return column names
 #' @rdname colnames
 #' @export
 colnames.lgb.Dataset <- function(dataset, ...) {
@@ -470,6 +472,7 @@ colnames.lgb.Dataset <- function(dataset, ...) {
 #' @param object Object of class "lgb.Dataset"
 #' @param idxset a integer vector of indices of rows needed
 #' @param ... other parameters (currently not used)
+#' @return constructed sub dataset
 #'
 #' @examples
 #' data(agaricus.train, package='lightgbm')
@@ -499,6 +502,7 @@ slice.lgb.Dataset <- function(object, idxset, ...) {
 #' @param object Object of class \code{lgb.Dataset}
 #' @param name the name of the information field to get (see details)
 #' @param ... other parameters
+#' @return info data
 #'
 #' @details
 #' The \code{name} field can be one of the following:
@@ -536,6 +540,7 @@ getinfo.lgb.Dataset <- function(object, name, ...) {
 #' @param name the name of the field to get
 #' @param info the specific field of information to set
 #' @param ... other parameters
+#' @return passed object
 #'
 #' @details
 #' The \code{name} field can be one of the following:
@@ -569,6 +574,7 @@ setinfo.lgb.Dataset <- function(object, name, info, ...) {
 #' set categorical feature of \code{lgb.Dataset}
 #' @param dataset object of class \code{lgb.Dataset}
 #' @param categorical_feature categorical features
+#' @return passed dataset
 #' @rdname set.categorical.feature.lgb.Dataset
 #' @export
 set.categorical.feature.lgb.Dataset <-
@@ -579,6 +585,7 @@ set.categorical.feature.lgb.Dataset <-
 #' set reference of \code{lgb.Dataset}
 #' @param dataset object of class \code{lgb.Dataset}
 #' @param reference object of class \code{lgb.Dataset}
+#' @return passed dataset
 #' @rdname set.reference.lgb.Dataset
 #' @export
 set.reference.lgb.Dataset <- function(dataset, reference) {
@@ -588,6 +595,7 @@ set.reference.lgb.Dataset <- function(dataset, reference) {
 #' save \code{lgb.Dataset} to binary file
 #' @param dataset object of class \code{lgb.Dataset}
 #' @param fname object filename of output file
+#' @return passed dataset
 #' @rdname save.binary.lgb.Dataset
 #' @export
 save.binary.lgb.Dataset <- function(dataset, fname) {

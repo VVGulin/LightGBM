@@ -1,4 +1,4 @@
-#' convert params to str that can be accepted by lightgbm c_api
+
 lgb.params2str <- function(params, ...) {
   if (typeof(params) != "list") 
     stop("params must be a list")

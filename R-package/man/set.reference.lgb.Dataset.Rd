@@ -11,6 +11,9 @@ set.reference.lgb.Dataset(dataset, reference)
 
 \item{reference}{object of class \code{lgb.Dataset}}
 }
+\value{
+passed dataset
+}
 \description{
 set reference of \code{lgb.Dataset}
 }

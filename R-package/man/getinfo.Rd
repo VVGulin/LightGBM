@@ -16,6 +16,9 @@ getinfo(object, ...)
 
 \item{name}{the name of the information field to get (see details)}
 }
+\value{
+info data
+}
 \description{
 Get information of an lgb.Dataset object
 }

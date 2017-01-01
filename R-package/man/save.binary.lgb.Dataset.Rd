@@ -11,6 +11,9 @@ save.binary.lgb.Dataset(dataset, fname)
 
 \item{fname}{object filename of output file}
 }
+\value{
+passed dataset
+}
 \description{
 save \code{lgb.Dataset} to binary file
 }

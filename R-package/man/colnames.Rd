@@ -11,6 +11,9 @@ colnames.lgb.Dataset(dataset, ...)
 
 \item{...}{other parameters}
 }
+\value{
+column names
+}
 \description{
 Get column names of \code{lgb.Dataset}
 }

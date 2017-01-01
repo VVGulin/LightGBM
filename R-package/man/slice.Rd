@@ -17,6 +17,9 @@ slice(object, ...)
 
 \item{idxset}{a integer vector of indices of rows needed}
 }
+\value{
+constructed sub dataset
+}
 \description{
 Get a new Dataset containing the specified rows of
 orginal lgb.Dataset object

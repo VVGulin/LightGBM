@@ -11,6 +11,9 @@ set.categorical.feature.lgb.Dataset(dataset, categorical_feature)
 
 \item{categorical_feature}{categorical features}
 }
+\value{
+passed dataset
+}
 \description{
 set categorical feature of \code{lgb.Dataset}
 }
