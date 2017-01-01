@@ -4,16 +4,16 @@
 \alias{lgb.Dataset}
 \title{Contruct lgb.Dataset object}
 \usage{
-lgb.Dataset(data, params = list(), reference = NULL,
+lgb.Dataset(data, params = list(), reference = NULL, colnames = NULL,
   categorical_feature = NULL, predictor = NULL, free_raw_data = TRUE,
-  info = list(), ...)
+  used_indices = NULL, info = list(), ...)
 }
 \arguments{
 \item{data}{a \code{matrix} object, a \code{dgCMatrix} object or a character representing a filename}
 
 \item{params}{a list of parameters}
 
-\item{reference}{refenence dataset}
+\item{reference}{reference dataset}
 
 \item{categorical_feature}{categorical features}
 

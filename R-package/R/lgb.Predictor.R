@@ -1,4 +1,3 @@
-
 Predictor <- R6Class("lgb.Predictor",
   public = list(
     handle = NULL,
@@ -60,18 +59,3 @@ Predictor <- R6Class("lgb.Predictor",
     }
   )
 )
-
-# internal utility function
-lgb.Predictor <- function(modelfile) {
-  return(Predictor$new(modelfile))
-}
-
-# internal utility function
-lgb.Predictor.predict <- function(object, data, 
-  num_iteration = NULL, rawscore = FALSE, predleaf = FALSE, header = FALSE, 
-  reshape = FALSE, ...) {
-  if(!("lgb.Predictor" %in% class(object))){
-    stop("only support predict with lgb.Predictor class")
-  }
-  return(object$predict(data, num_iteration, rawscore, predleaf, header, reshape, ...))
-}

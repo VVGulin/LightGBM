@@ -1,3 +1,258 @@
+Dataset <- R6Class("lgb.Dataset",
+  public = list(
+    handle=NULL,
+    raw_data=NULL,
+    params=NULL,
+    reference=NULL,
+    colnames=NULL,
+    categorical_feature=NULL,
+    predictor=NULL, 
+    free_raw_data=TRUE,
+    used_indices=NULL,
+    info=NULL,
+    initialize = function(data, params=list(), 
+      reference=NULL, colnames=NULL, categorical_feature=NULL, 
+      predictor=NULL, free_raw_data=TRUE, used_indices=NULL, info=list(), ...) {
+      info <- append(info, list(...))
+      if(!is.null(reference)){
+        if(!lgb.check.r6.class(reference,"lgb.Dataset")) {
+           stop("Only can use lgb.Dataset as reference")
+        }
+      }
+      if(!is.null(predictor)){
+        if(!lgb.check.r6.class(predictor,"lgb.Predictor")) {
+           stop("Only can use lgb.Predictor as predictor")
+        }
+      }
+      self$raw_data <- data
+      self$params <- params
+      self$reference <- reference
+      self$colnames <- colnames
+      self$categorical_feature <- categorical_feature
+      self$predictor <- predictor
+      self$free_raw_data <- free_raw_data
+      self$used_indices <- used_indices
+      self$info <- info
+    },
+    create_valid = function(data, info=list(),  ...) {
+      info <- append(info, list(...))
+      ret <- Dataset$new(data, self$params,
+        self, self$colnames, self$categorical_feature, self$predictor,
+        self$free_raw_data, NULL, info)
+      return(ret)
+    },
+    get_handle = function() {
+      if(is.null(self$handle)){
+        self$construct()
+      }
+      return(self$handle)
+    },
+    construct = function() {
+      if(!is.null(self$handle)){
+        return(self)
+      }
+      # Get feature names
+      cnames <- NULL
+      if (is.matrix(self$raw_data) | class(self$raw_data) == "dgCMatrix") {
+        cnames <- colnames(self$raw_data)
+      }
+      # set feature names if not exist
+      if (is.null(self$colnames)){
+        self$colnames <- as.list(cnames)
+      }
+      # Get categorical feature index
+      if(!is.null(self$categorical_feature)){
+        fname_dict <- list()
+        if(!is.null(self$colnames)){
+          fname_dict <- as.list(setNames(0:(length(self$colnames)-1), self$colnames))
+        }
+        cate_indices <- list()
+        for(key in self$categorical_feature){
+          if(is.character(key)){
+            idx <- fname_dict[[key]]
+            if(is.null(idx)){
+              stop(paste("lgb.self.get.handle: cannot find feature name ", key))
+            }
+            cate_indices <- append(cate_indices, idx)
+          } else {
+            # one-based indices to zero-based
+            idx <- as.integer(key - 1)
+            cate_indices <- append(cate_indices, idx)
+          }
+        }
+        self$params$categorical_feature <- cate_indices
+      }
+      # Check has header or not
+      has_header <- FALSE
+      if (!is.null(self$params$has_header) | !is.null(self$params$header)) {
+        if (tolower(as.character(self$params$has_header)) == "true" 
+            | tolower(as.character(self$params$header)) == "true") {
+          has_header <- TRUE
+        }
+      }
+      # Generate parameter str
+      params_str <- as.character(lgb.params2str(self$params))
+      # get handle of reference dataset
+      ref_handle <- NULL
+      if(!is.null(self$reference)){
+        ref_handle <- self$reference$get_handle()
+      }
+      # not subset
+      if(is.null(self$used_indices)){
+        if (typeof(self$raw_data) == "character") {
+          handle <- .Call("LGBM_DatasetCreateFromFile_R", self$raw_data, params_str, ref_handle,
+            PACKAGE = "lightgbm")
+        } else if (is.matrix(self$raw_data)) {
+          handle <- .Call("LGBM_DatasetCreateFromMat_R", self$raw_data, params_str, ref_handle,
+            PACKAGE = "lightgbm")
+        } else if (class(self$raw_data) == "dgCMatrix") {
+          handle <- .Call("LGBM_DatasetCreateFromCSC_R", self$raw_data@p, 
+            self$raw_data@i, self$raw_data@x, nrow(self$raw_data),
+            params_str, ref_handle, PACKAGE = "lightgbm")
+        } else {
+          stop(paste("lgb.Dataset.construct: does not support to construct from ",
+                     typeof(self$raw_data)))
+        }
+      } else {
+        # construct subset
+        if(is.null(self$reference)) {
+          stop("lgb.Dataset.construct: reference cannot be NULL if construct subset")
+        }
+        handle <- .Call("LGBM_DatasetGetSubset_R", ref_handle, self$used_indices, 
+          params_str, PACKAGE = "lightgbm")
+      }
+
+      class(handle) <- "lgb.Dataset.handle"
+      self$handle <- handle
+      # set feature names
+      if(!is.null(self$colnames)){
+        .Call("LGBM_DatasetSetFeatureNames_R", self$handle, self$colnames, PACKAGE="lightgbm")
+      }
+
+      # load init score
+      if(!is.null(self$predictor) & is.null(self$used_indices)){
+        init_score <- self$predictor$predict(self$raw_data, rawscore=TRUE, reshape=TRUE)
+        # not need to transpose, for is col_marjor
+        init_score <- as.vector(init_score)
+        self$info$init_score <- init_score
+      }
+
+      if(self$free_raw_data){
+        self$raw_data <- NULL
+      }
+
+      if (length(self$info) > 0){
+        # set infos
+        for (i in 1:length(self$info)) {
+          p <- self$info[i]
+          self$setinfo(names(p), p[[1]])
+        }
+      }
+
+      if(is.null(self$getinfo("label"))){
+        stop("lgb.Dataset.construct: label should be set")
+      }
+      return(self)
+    },
+    dim = function() {
+      if(!is.null(self$handle)) {
+        return(c(.Call("LGBM_DatasetGetNumData_R", self$handle, PACKAGE="lightgbm"),
+        .Call("LGBM_DatasetGetNumFeature_R", self$handle, PACKAGE="lightgbm")))
+      } else if (is.matrix(self$raw_data) | class(self$raw_data) == "dgCMatrix") {
+        return(dim(self$raw_data))
+      } else {
+        stop("cannot get Dimensions before dataset constructed, please call construct.lgb.Dataset explicit")
+      }      
+    },
+    set_colnames = function(colnames) {
+      self$colnames <- as.list(colnames)
+      if(!is.null(self$colnames) & !is.null(self$handle)){
+        .Call("LGBM_DatasetSetFeatureNames_R", self$handle, self$colnames, PACKAGE="lightgbm")
+      }
+    },
+    getinfo = function(name) {
+      if (typeof(name) != "character" ||
+          length(name) != 1 ||
+          !name %in% c('label', 'weight', 'init_score', 'group')) {
+        stop("getinfo: name must one of the following\n",
+             "    'label', 'weight', 'init_score', 'group'")
+      }
+      if(is.null(self$info$name) & !is.null(self$handle)){
+        ret <- .Call("LGBM_DatasetGetField_R", self$handle, name, PACKAGE = "lightgbm")
+        if (length(ret) > 0) {
+          self$info$name <- ret
+        }
+      }
+      return(self$info$name)
+    },
+    setinfo = function(name, info) {
+      if (typeof(name) != "character" ||
+          length(name) != 1 ||
+          !name %in% c('label', 'weight', 'init_score', 'group')) {
+        stop("setinfo: name must one of the following\n",
+             "    'label', 'weight', 'init_score', 'group'")
+        return(FALSE)
+      }
+      if (name == "group") {
+        info <- as.integer(info)
+      } else {
+        info <- as.numeric(info)
+      }
+      self$info$name <- info
+      if (!is.null(self$handle)) {
+        .Call("LGBM_DatasetSetField_R", self$handle, name, self$info$name,
+          PACKAGE = "lightgbm")
+      }
+      return(TRUE)
+    },
+    slice = function(idxset) {
+      ret <- Dataset$new(NULL, self$params,
+        self, self$colnames, self$categorical_feature, self$predictor,
+        self$free_raw_data, idxset, NULL)
+      return(ret)
+    },
+    set_categorical_feature = function(categorical_feature) {
+      if(is.null(self$raw_data)){
+        stop("cannot set categorical feature after free raw data,
+             please set free_raw_data=FALSE when construct lgb.Dataset")
+      }
+      self$categorical_feature <- categorical_feature
+      self$handle <- NULL
+    },
+    set_predictor = function(predictor) {
+      if(is.null(self$raw_data)){
+        stop("cannot set predictor after free raw data,
+             please set free_raw_data=FALSE when construct lgb.Dataset")
+      }
+      if(!is.null(predictor)){
+        if(!lgb.check.r6.class(predictor,"lgb.Predictor")) {
+           stop("Only can use lgb.Predictor as predictor")
+        }
+      }
+      self$predictor <- predictor
+      self$handle <- NULL
+    },
+    set_reference = function(reference) {
+      if(is.null(self$raw_data)){
+        stop("cannot set reference after free raw data,
+             please set free_raw_data=FALSE when construct lgb.Dataset")
+      }
+      if(!is.null(reference)){
+        if(!lgb.check.r6.class(reference,"lgb.Dataset")) {
+           stop("Only can use lgb.Dataset as reference")
+        }
+      }
+      self$reference <- reference
+      self$handle <- NULL
+    },
+    save_binary = function(fname) {
+      .Call("LGBM_DatasetSaveBinary_R", self$handle, fname, PACKAGE = "lightgbm")
+    }
+  )
+)
+
+
+
 #' Contruct lgb.Dataset object
 #' 
 #' Contruct lgb.Dataset object from dense matrix, sparse matrix 
@@ -5,7 +260,7 @@
 #' 
 #' @param data a \code{matrix} object, a \code{dgCMatrix} object or a character representing a filename
 #' @param params a list of parameters
-#' @param reference refenence dataset
+#' @param reference reference dataset
 #' @param categorical_feature categorical features
 #' @param predictor initial predictor
 #' @param free_raw_data TRUE for need to free raw data after construct
@@ -19,24 +274,12 @@
 #' lgb.Dataset.save(dtrain, 'lgb.Dataset.data')
 #' dtrain <- lgb.Dataset('lgb.Dataset.data')
 #' @export
-lgb.Dataset <- function(data, params=list(), reference=NULL, 
-  categorical_feature=NULL, predictor=NULL, free_raw_data=TRUE, info=list(), ...) {
-  info <- append(info, list(...))
-  if(!is.null(reference)){
-    if(!typeof(reference) == "lgb.Dataset"){
-       stop("Only can use lgb.Dataset as reference")
-    }
-  }
-  if(!is.null(predictor)){
-    if(!typeof(predictor) == "lgb.Predictor"){
-       stop("Only can use lgb.Predictor as predictor")
-    }
-  }
-  ret <- structure(list(handle=NULL, raw_data=data,
-    params=params, reference=reference, 
-    categorical_feature=categorical_feature,
-    predictor=predictor, free_raw_data=free_raw_data,
-    info=info, used_indices=NULL), class="lgb.Dataset")
+lgb.Dataset <- function(data, params=list(), 
+      reference=NULL, colnames=NULL, categorical_feature=NULL, 
+      predictor=NULL, free_raw_data=TRUE, used_indices=NULL, info=list(), ...) {
+  ret <- Dataset$new(data, params, reference,
+    colnames, categorical_feature,
+    predictor,free_raw_data,used_indices,info,...)
   return(ret)
 }
 
@@ -54,114 +297,12 @@ lgb.Dataset <- function(data, params=list(), reference=NULL,
 #' dtrain <- lgb.Dataset('lgb.Dataset.data')
 #' @export
 create.valid.lgb.Dataset <- function(dataset, data, info=list(),  ...) {
-  info <- append(info, list(...))
-  ret <- lgb.Dataset(data, dataset$params,
-    dataset, dataset$categorical_feature, dataset$predictor,
-    dataset$free_raw_data, info)
-  return(ret)
+  return(dataset$create_valid(data, info, ...))
 }
 
 # internal utility function
 lgb.Dataset.get.handle <- function(dataset) {
-  if(!is.null(dataset$handle)){
-    return(dataset$handle)
-  }
-  # lazy load for handle
-  cnames <- NULL
-  if (is.matrix(dataset$raw_data) | class(dataset$raw_data) == "dgCMatrix") {
-    cnames <- colnames(dataset$raw_data)
-  } else {
-    stop(paste("lgb.Dataset.get.handle: does not support to construct from ", typeof(dataset$raw_data)))
-  }
-
-  if(!is.null(dataset$categorical_feature)){
-    fname_dict <- list()
-    if(!is.null(cnames)){
-      fname_dict <- as.list(setNames(0:(length(cnames)-1), cnames))
-    }
-    cate_indices <- list()
-    for(key in dataset$categorical_feature){
-      if(is.character(key)){
-        idx <- fname_dict[[key]]
-        if(is.null(idx)){
-          stop(paste("lgb.Dataset.get.handle: cannot find feature name ", key))
-        }
-        cate_indices <- append(cate_indices, idx)
-      } else {
-        # one-based indices to zero-based
-        idx <- as.integer(key - 1)
-        cate_indices <- append(cate_indices, idx)
-      }
-    }
-    dataset$categorical_feature <- cate_indices
-  }
-  has_header <- FALSE
-  if (!is.null(dataset$params$has_header) | !is.null(dataset$params$header)) {
-    if (tolower(as.character(dataset$params$has_header)) == "true" | tolower(as.character(dataset$params$header)) == "true") {
-      has_header <- TRUE
-    }
-  }
-  params_str <- as.character(lgb.params2str(dataset$params))
-  ref_handle <- NULL
-
-  if(!is.null(dataset$reference)){
-    ref_handle <- lgb.Dataset.get.handle(dataset$reference)
-  }
-  if(is.null(dataset$used_indices)){
-    if (typeof(dataset$raw_data) == "character") {
-      handle <- .Call("LGBM_DatasetCreateFromFile_R", dataset$raw_data, params_str, ref_handle,
-        PACKAGE = "lightgbm")
-    } else if (is.matrix(dataset$raw_data)) {
-      handle <- .Call("LGBM_DatasetCreateFromMat_R", dataset$raw_data, params_str, ref_handle,
-        PACKAGE = "lightgbm")
-    } else if (class(dataset$raw_data) == "dgCMatrix") {
-      handle <- .Call("LGBM_DatasetCreateFromCSC_R", dataset$raw_data@p, 
-        dataset$raw_data@i, dataset$raw_data@x, nrow(dataset$raw_data),
-        params_str, ref_handle, PACKAGE = "lightgbm")
-    } else {
-      stop(paste("lgb.Dataset.get.handle: does not support to construct from ",
-                 typeof(dataset$raw_data)))
-    }
-  } else {
-    if(is.null(dataset$reference)) {
-      stop("lgb.Dataset.get.handle: refenence cannot be NULL")
-    }
-    handle <- .Call("LGBM_DatasetGetSubset_R", ref_handle, dataset$used_indices, 
-      params_str, PACKAGE = "lightgbm")
-  }
-
-  class(handle) <- "lgb.Dataset.handle"
-  dataset$handle <- handle
-  # set feature names
-  if(!is.null(cnames)){
-    dataset$colnames <- as.list(cnames)
-    .Call("LGBM_DatasetSetFeatureNames_R", dataset$handle, dataset$colnames, PACKAGE="lightgbm")
-  }
-  if(!is.null(dataset$predictor) & is.null(dataset$used_indices)){
-    # load init score
-    init_score <- lgb.Predictor.predict(dataset$predictor, dataset$raw_data, rawscore=TRUE, reshape=TRUE)
-    # not need to transpose, for is col_marjor
-    init_score <- as.vector(init_score)
-    dataset$info$init_score <- init_score
-  }
-
-  if(dataset$free_raw_data){
-    dataset$raw_data <- NULL
-  }
-
-  if (length(dataset$info) > 0){
-    # set infos
-    for (i in 1:length(dataset$info)) {
-      p <- dataset$info[i]
-      setinfo(dataset, names(p), p[[1]])
-    }
-  }
-
-  if(is.null(getinfo(dataset,"label"))){
-    stop("label should be set")
-  }
-
-  return(dataset$handle)
+  return(dataset$get_handle())
 }
 
 #' Construct Dataset explicit
@@ -171,7 +312,7 @@ lgb.Dataset.get.handle <- function(dataset) {
 #' 
 #' @export
 construct.lgb.Dataset <- function(dataset) {
-  lgb.Dataset.get.handle(dataset)
+  dataset$construct()
 }
 
 #' Dimensions of lgb.Dataset
@@ -194,14 +335,7 @@ construct.lgb.Dataset <- function(dataset) {
 #' 
 #' @export
 dim.lgb.Dataset <- function(x) {
-  if(!is.null(x$handle)) {
-    return(c(.Call("LGBM_DatasetGetNumData_R", x$handle, PACKAGE="lightgbm"),
-    .Call("LGBM_DatasetGetNumFeature_R", x$handle, PACKAGE="lightgbm")))
-  } else if (is.matrix(dataset$raw_data) | class(dataset$raw_data) == "dgCMatrix") {
-    return(dim(x$raw_data))
-  } else {
-    stop("cannot get Dimensions before dataset constructed, please call construct.lgb.Dataset explicit")
-  }
+  return(x$dim())
 }
 
 #' Handling of column names of \code{lgb.Dataset}
@@ -240,15 +374,7 @@ slice <- function(object, ...) UseMethod("slice")
 #' @rdname slice.lgb.Dataset
 #' @export
 slice.lgb.Dataset <- function(object, idxset, ...) {
-  if (class(object) != "lgb.Dataset") {
-    stop("slice.lgb.Dataset: first argument dtrain must be lgb.Dataset")
-  }
-  ret <- structure(list(handle=NULL, raw_data=NULL,
-    params=object$params, reference=object, 
-    categorical_feature=object$categorical_feature,
-    predictor=object$predictor, free_raw_data=object$free_raw_data,
-    info=NULL, used_indices=idxset), class="lgb.Dataset")
-  return(ret)
+  return(object$slice(idxset))
 }
 
 
@@ -286,19 +412,7 @@ getinfo <- function(object, ...) UseMethod("getinfo")
 #' @rdname getinfo
 #' @export
 getinfo.lgb.Dataset <- function(object, name, ...) {
-  if (typeof(name) != "character" ||
-      length(name) != 1 ||
-      !name %in% c('label', 'weight', 'init_score', 'group')) {
-    stop("getinfo: name must one of the following\n",
-         "    'label', 'weight', 'init_score', 'group'")
-  }
-  if(is.null(object$info$name)){
-    ret <- .Call("LGBM_DatasetGetField_R", object$handle, name, PACKAGE = "lightgbm")
-    if (length(ret) > 0) {
-      object$info$name <- ret
-    }
-  }
-  return(object$info$name)
+  return(object$getinfo(name))
 }
 
 #' Set information of an lgb.Dataset object
@@ -334,24 +448,7 @@ setinfo <- function(object, ...) UseMethod("setinfo")
 #' @rdname setinfo
 #' @export
 setinfo.lgb.Dataset <- function(object, name, info, ...) {
-  if (typeof(name) != "character" ||
-      length(name) != 1 ||
-      !name %in% c('label', 'weight', 'init_score', 'group')) {
-    stop("setinfo: name must one of the following\n",
-         "    'label', 'weight', 'init_score', 'group'")
-    return(FALSE)
-  }
-  if (name == "group") {
-    info <- as.integer(info)
-  } else {
-    info <- as.numeric(info)
-  }
-  object$info$name <- info
-  if (!is.null(object$handle)) {
-    .Call("LGBM_DatasetSetField_R", object$handle, name, object$info$name,
-      PACKAGE = "lightgbm")
-  }
-  return(TRUE)
+  return(object$setinfo(name,info))
 }
 
 #' set categorical feature of \code{lgb.Dataset}
@@ -360,25 +457,12 @@ setinfo.lgb.Dataset <- function(object, name, info, ...) {
 #' @rdname set.categorical.feature.lgb.Dataset
 #' @export
 set.categorical.feature.lgb.Dataset <- function(x, categorical_feature) {
-  if(is.null(x$raw_data)){
-    stop("cannot set categorical feature after free raw data,
-         please set free_raw_data=FALSE when construct lgb.Dataset")
-  }
-  x$categorical_feature = categorical_feature
-  x$handle <- NULL
+  x$set_categorical_feature(categorical_feature)
 }
 
 # internal utility function
 lgb.Dataset.set.predictor <- function(x, predictor) {
-  if(is.null(x$raw_data)){
-    stop("cannot set predictor after free raw data,
-         please set free_raw_data=FALSE when construct lgb.Dataset")
-  }
-  if(!typeof(predictor) == "lgb.Predictor"){
-     stop("Only can use lgb.Predictor as predictor")
-  }
-  x$predictor = predictor
-  x$handle <- NULL
+  x$set_predictor(predictor)
 }
 
 #' set reference of \code{lgb.Dataset}
@@ -387,15 +471,7 @@ lgb.Dataset.set.predictor <- function(x, predictor) {
 #' @rdname set.reference.lgb.Dataset
 #' @export
 set.reference.lgb.Dataset <- function(x, reference) {
-  if(is.null(x$raw_data)){
-    stop("cannot set reference after free raw data,
-         please set free_raw_data=FALSE when construct lgb.Dataset")
-  }
-  if(!typeof(reference) == "lgb.Dataset"){
-    stop("Only can use lgb.Dataset as reference")
-  }
-  x$reference = reference
-  x$handle <- NULL
+  x$set_reference(reference)
 }
 
 #' save \code{lgb.Dataset} to binary file
@@ -404,5 +480,5 @@ set.reference.lgb.Dataset <- function(x, reference) {
 #' @rdname save.binary.lgb.Dataset
 #' @export
 save.binary.lgb.Dataset <- function(x, fname) {
-  .Call("LGBM_DatasetSaveBinary_R", x$handle, fname, PACKAGE = "lightgbm")
+  x$save_binary(fname)
 }

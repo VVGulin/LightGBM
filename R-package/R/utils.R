@@ -21,3 +21,13 @@ lgb.params2str <- function(params, ...) {
   }
   return(paste0(ret, collapse=" "))
 }
+
+lgb.check.r6.class <- function(object, name) {
+  if(!("R6" %in% class(object))){
+    return(FALSE)
+  }
+  if(!(name %in% class(object))){
+    return(FALSE)
+  }
+  return(TRUE)
+}
