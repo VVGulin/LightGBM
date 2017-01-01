@@ -251,8 +251,6 @@ Dataset <- R6Class("lgb.Dataset",
   )
 )
 
-
-
 #' Contruct lgb.Dataset object
 #' 
 #' Contruct lgb.Dataset object from dense matrix, sparse matrix 
@@ -277,10 +275,9 @@ Dataset <- R6Class("lgb.Dataset",
 lgb.Dataset <- function(data, params=list(), 
       reference=NULL, colnames=NULL, categorical_feature=NULL, 
       predictor=NULL, free_raw_data=TRUE, used_indices=NULL, info=list(), ...) {
-  ret <- Dataset$new(data, params, reference,
+  Dataset$new(data, params, reference,
     colnames, categorical_feature,
     predictor,free_raw_data,used_indices,info,...)
-  return(ret)
 }
 
 #' Contruct a validation data according to training data
@@ -297,12 +294,7 @@ lgb.Dataset <- function(data, params=list(),
 #' dtrain <- lgb.Dataset('lgb.Dataset.data')
 #' @export
 create.valid.lgb.Dataset <- function(dataset, data, info=list(),  ...) {
-  return(dataset$create_valid(data, info, ...))
-}
-
-# internal utility function
-lgb.Dataset.get.handle <- function(dataset) {
-  return(dataset$get_handle())
+  dataset$create_valid(data, info, ...)
 }
 
 #' Construct Dataset explicit
@@ -318,7 +310,7 @@ construct.lgb.Dataset <- function(dataset) {
 #' Dimensions of lgb.Dataset
 #' 
 #' Returns a vector of numbers of rows and of columns in an \code{lgb.Dataset}.
-#' @param x Object of class \code{lgb.Dataset}
+#' @param dataset Object of class \code{lgb.Dataset}
 #' 
 #' @details
 #' Note: since \code{nrow} and \code{ncol} internally use \code{dim}, they can also 
@@ -334,16 +326,16 @@ construct.lgb.Dataset <- function(dataset) {
 #' stopifnot(all(dim(dtrain) == dim(train$data)))
 #' 
 #' @export
-dim.lgb.Dataset <- function(x) {
-  return(x$dim())
+dim.lgb.Dataset <- function(dataset) {
+  dataset$dim()
 }
 
 #' Handling of column names of \code{lgb.Dataset}
-#' @param x object of class \code{lgb.Dataset}
+#' @param dataset object of class \code{lgb.Dataset}
 #' @rdname colnames.lgb.Dataset
 #' @export
-colnames.lgb.Dataset <- function(x) {
-  return(x$colnames)
+colnames.lgb.Dataset <- function(dataset) {
+  dataset$colnames
 }
 
 #' Get a new Dataset containing the specified rows of
@@ -374,7 +366,7 @@ slice <- function(object, ...) UseMethod("slice")
 #' @rdname slice.lgb.Dataset
 #' @export
 slice.lgb.Dataset <- function(object, idxset, ...) {
-  return(object$slice(idxset))
+  object$slice(idxset)
 }
 
 
@@ -412,7 +404,7 @@ getinfo <- function(object, ...) UseMethod("getinfo")
 #' @rdname getinfo
 #' @export
 getinfo.lgb.Dataset <- function(object, name, ...) {
-  return(object$getinfo(name))
+  object$getinfo(name)
 }
 
 #' Set information of an lgb.Dataset object
@@ -448,37 +440,32 @@ setinfo <- function(object, ...) UseMethod("setinfo")
 #' @rdname setinfo
 #' @export
 setinfo.lgb.Dataset <- function(object, name, info, ...) {
-  return(object$setinfo(name,info))
+  object$setinfo(name,info)
 }
 
 #' set categorical feature of \code{lgb.Dataset}
-#' @param x object of class \code{lgb.Dataset}
+#' @param dataset object of class \code{lgb.Dataset}
 #' @param categorical_feature categorical features
 #' @rdname set.categorical.feature.lgb.Dataset
 #' @export
-set.categorical.feature.lgb.Dataset <- function(x, categorical_feature) {
-  x$set_categorical_feature(categorical_feature)
-}
-
-# internal utility function
-lgb.Dataset.set.predictor <- function(x, predictor) {
-  x$set_predictor(predictor)
+set.categorical.feature.lgb.Dataset <- function(dataset, categorical_feature) {
+  dataset$set_categorical_feature(categorical_feature)
 }
 
 #' set reference of \code{lgb.Dataset}
-#' @param x object of class \code{lgb.Dataset}
+#' @param dataset object of class \code{lgb.Dataset}
 #' @param reference object of class \code{lgb.Dataset}
 #' @rdname set.reference.lgb.Dataset
 #' @export
-set.reference.lgb.Dataset <- function(x, reference) {
-  x$set_reference(reference)
+set.reference.lgb.Dataset <- function(dataset, reference) {
+  dataset$set_reference(reference)
 }
 
 #' save \code{lgb.Dataset} to binary file
-#' @param x object of class \code{lgb.Dataset}
+#' @param dataset object of class \code{lgb.Dataset}
 #' @param fname object filename of output file
 #' @rdname save.binary.lgb.Dataset
 #' @export
-save.binary.lgb.Dataset <- function(x, fname) {
-  x$save_binary(fname)
+save.binary.lgb.Dataset <- function(dataset, fname) {
+  dataset$save_binary(fname)
 }
