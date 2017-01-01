@@ -4,10 +4,10 @@
 \alias{set.reference.lgb.Dataset}
 \title{set reference of \code{lgb.Dataset}}
 \usage{
-set.reference.lgb.Dataset(x, reference)
+set.reference.lgb.Dataset(dataset, reference)
 }
 \arguments{
-\item{x}{object of class \code{lgb.Dataset}}
+\item{dataset}{object of class \code{lgb.Dataset}}
 
 \item{reference}{object of class \code{lgb.Dataset}}
 }

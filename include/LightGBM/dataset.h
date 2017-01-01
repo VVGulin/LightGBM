@@ -373,6 +373,7 @@ public:
   inline const std::vector<std::string>& feature_names() const { return feature_names_; }
 
   inline void set_feature_names(const std::vector<std::string>& feature_names) {
+    if (feature_names.empty()) { return; }
     if (feature_names.size() != static_cast<size_t>(num_total_features_)) {
       Log::Warning("size of feature_names error, should equal with total number of features");
       return;

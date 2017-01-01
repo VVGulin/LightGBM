@@ -1,3 +1,8 @@
+#' Dataset class of LightGBM
+#'
+#' The Dataset used in LightGBM is a high memory efficient object.
+#' The LightGBM only accept Dataset object for training
+#'
 Dataset <- R6Class(
   "lgb.Dataset",
   public = list(
@@ -228,6 +233,7 @@ Dataset <- R6Class(
               self$colnames,
               PACKAGE = "lightgbm")
       }
+      return(self)
     },
     getinfo = function(name) {
       if (typeof(name) != "character" ||
@@ -255,7 +261,6 @@ Dataset <- R6Class(
           "setinfo: name must one of the following\n",
           "    'label', 'weight', 'init_score', 'group'"
         )
-        return(FALSE)
       }
       if (name == "group") {
         info <- as.integer(info)
@@ -270,7 +275,7 @@ Dataset <- R6Class(
               self$info$name,
               PACKAGE = "lightgbm")
       }
-      return(TRUE)
+      return(self)
     },
     slice = function(idxset) {
       ret <- Dataset$new(
@@ -287,6 +292,9 @@ Dataset <- R6Class(
       return(ret)
     },
     set_categorical_feature = function(categorical_feature) {
+      if(self$set_categorical_feature == set_categorical_feature){
+        return(self)
+      }
       if (is.null(self$raw_data)) {
         stop(
           "cannot set categorical feature after free raw data,
@@ -295,8 +303,12 @@ Dataset <- R6Class(
       }
       self$categorical_feature <- categorical_feature
       self$handle <- NULL
+      return(self)
     },
     set_predictor = function(predictor) {
+      if(self$predictor == predictor){
+        return(self)
+      }
       if (is.null(self$raw_data)) {
         stop(
           "cannot set predictor after free raw data,
@@ -310,8 +322,15 @@ Dataset <- R6Class(
       }
       self$predictor <- predictor
       self$handle <- NULL
+      return(self)
     },
     set_reference = function(reference) {
+      self$set_categorical_feature(reference$categorical_feature)
+      self$set_colnames(reference$colnames)
+      self$set_predictor(reference$predictor)
+      if(self$reference == reference){
+        return(self)
+      }
       if (is.null(self$raw_data)) {
         stop(
           "cannot set reference after free raw data,
@@ -325,9 +344,12 @@ Dataset <- R6Class(
       }
       self$reference <- reference
       self$handle <- NULL
+      return(self)
     },
     save_binary = function(fname) {
+      self$construct()
       .Call("LGBM_DatasetSaveBinary_R", self$handle, fname, PACKAGE = "lightgbm")
+      return(self)
     }
   )
 )
@@ -340,27 +362,26 @@ Dataset <- R6Class(
 #' @param data a \code{matrix} object, a \code{dgCMatrix} object or a character representing a filename
 #' @param params a list of parameters
 #' @param reference reference dataset
+#' @param colnames names of columns
 #' @param categorical_feature categorical features
-#' @param predictor initial predictor
 #' @param free_raw_data TRUE for need to free raw data after construct
 #' @param info a list of information of the lgb.Dataset object
 #' @param ... other information to pass to \code{info}.
-#'
+#' @return constructed dataset
 #' @examples
 #' data(agaricus.train, package='lightgbm')
 #' train <- agaricus.train
 #' dtrain <- lgb.Dataset(train$data, label=train$label)
-#' lgb.Dataset.save(dtrain, 'lgb.Dataset.data')
+#' save.binary.lgb.Dataset(dtrain, 'lgb.Dataset.data')
 #' dtrain <- lgb.Dataset('lgb.Dataset.data')
+#' construct.lgb.Dataset(dtrain)
 #' @export
 lgb.Dataset <- function(data,
                         params = list(),
                         reference = NULL,
                         colnames = NULL,
                         categorical_feature = NULL,
-                        predictor = NULL,
                         free_raw_data = TRUE,
-                        used_indices = NULL,
                         info = list(),
                         ...) {
   Dataset$new(
@@ -369,26 +390,27 @@ lgb.Dataset <- function(data,
     reference,
     colnames,
     categorical_feature,
-    predictor,
+    NULL,
     free_raw_data,
-    used_indices,
+    NULL,
     info,
     ...
   )
 }
 
 #' Contruct a validation data according to training data
-#' @param dataset lgb.Dataset object, training data
+#' @param dataset \code{lgb.Dataset} object, training data
 #' @param data a \code{matrix} object, a \code{dgCMatrix} object or a character representing a filename
 #' @param info a list of information of the lgb.Dataset object
 #' @param ... other information to pass to \code{info}.
-#'
+#' @return constructed dataset
 #' @examples
 #' data(agaricus.train, package='lightgbm')
 #' train <- agaricus.train
 #' dtrain <- lgb.Dataset(train$data, label=train$label)
-#' lgb.Dataset.save(dtrain, 'lgb.Dataset.data')
-#' dtrain <- lgb.Dataset('lgb.Dataset.data')
+#' data(agaricus.test, package='lightgbm')
+#' test <- agaricus.test
+#' dtest <- create.valid.lgb.Dataset(dtrain, test$data, label=test$label)
 #' @export
 create.valid.lgb.Dataset <-
   function(dataset, data, info = list(),  ...) {
@@ -397,9 +419,12 @@ create.valid.lgb.Dataset <-
 
 #' Construct Dataset explicit
 #'
-#' Returns NULL
 #' @param dataset Object of class \code{lgb.Dataset}
-#'
+#' @examples
+#' data(agaricus.train, package='lightgbm')
+#' train <- agaricus.train
+#' dtrain <- lgb.Dataset(train$data, label=train$label)
+#' construct.lgb.Dataset(dtrain)
 #' @export
 construct.lgb.Dataset <- function(dataset) {
   dataset$construct()
@@ -408,7 +433,8 @@ construct.lgb.Dataset <- function(dataset) {
 #' Dimensions of lgb.Dataset
 #'
 #' Returns a vector of numbers of rows and of columns in an \code{lgb.Dataset}.
-#' @param dataset Object of class \code{lgb.Dataset}
+#' @param object Object of class \code{lgb.Dataset}
+#' @param ... other parameters
 #'
 #' @details
 #' Note: since \code{nrow} and \code{ncol} internally use \code{dim}, they can also
@@ -423,22 +449,21 @@ construct.lgb.Dataset <- function(dataset) {
 #' stopifnot(ncol(dtrain) == ncol(train$data))
 #' stopifnot(all(dim(dtrain) == dim(train$data)))
 #'
+#' @rdname dim
 #' @export
-dim.lgb.Dataset <- function(dataset) {
+dim.lgb.Dataset <- function(dataset, ...) {
   dataset$dim()
 }
 
-#' Handling of column names of \code{lgb.Dataset}
+#' Get column names of \code{lgb.Dataset}
 #' @param dataset object of class \code{lgb.Dataset}
-#' @rdname colnames.lgb.Dataset
+#' @param ... other parameters
+#' @rdname colnames
 #' @export
-colnames.lgb.Dataset <- function(dataset) {
+colnames.lgb.Dataset <- function(dataset, ...) {
   dataset$colnames
 }
 
-#' Get a new Dataset containing the specified rows of
-#' orginal lgb.Dataset object
-#'
 #' Get a new Dataset containing the specified rows of
 #' orginal lgb.Dataset object
 #'
@@ -457,12 +482,11 @@ colnames.lgb.Dataset <- function(dataset) {
 #' labels2 <- getinfo(dsub, 'label')
 #' all.equal(labels1, labels2)
 #'
-#' @rdname slice.lgb.Dataset
 #' @export
 slice <- function(object, ...)
   UseMethod("slice")
 
-#' @rdname slice.lgb.Dataset
+#' @rdname slice
 #' @export
 slice.lgb.Dataset <- function(object, idxset, ...) {
   object$slice(idxset)
@@ -496,7 +520,6 @@ slice.lgb.Dataset <- function(object, idxset, ...) {
 #'
 #' labels2 <- getinfo(dtrain, 'label')
 #' stopifnot(all(labels2 == 1-labels))
-#' @rdname getinfo
 #' @export
 getinfo <- function(object, ...)
   UseMethod("getinfo")
@@ -533,7 +556,6 @@ getinfo.lgb.Dataset <- function(object, name, ...) {
 #' setinfo(dtrain, 'label', 1-labels)
 #' labels2 <- getinfo(dtrain, 'label')
 #' stopifnot(all.equal(labels2, 1-labels))
-#' @rdname setinfo
 #' @export
 setinfo <- function(object, ...)
   UseMethod("setinfo")

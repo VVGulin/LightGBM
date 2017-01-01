@@ -8,6 +8,10 @@
 namespace LightGBM {
 
 Metadata::Metadata() {
+  num_queries_ = 0;
+  num_weights_ = 0;
+  num_init_score_ = 0;
+  num_data_ = 0;
 }
 
 void Metadata::Init(const char * data_filename) {
@@ -349,7 +353,7 @@ void Metadata::SetQueryId(const data_size_t* query_id, data_size_t len) {
   }
   if (!queries_.empty()) { queries_.clear(); }
   queries_ = std::vector<data_size_t>(num_data_);
-  for (data_size_t i = 0; i < num_weights_; ++i) {
+  for (data_size_t i = 0; i < num_data_; ++i) {
     queries_[i] = query_id[i];
   }
   // need convert query_id to boundaries

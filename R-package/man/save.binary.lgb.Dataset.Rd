@@ -4,10 +4,10 @@
 \alias{save.binary.lgb.Dataset}
 \title{save \code{lgb.Dataset} to binary file}
 \usage{
-save.binary.lgb.Dataset(x, fname)
+save.binary.lgb.Dataset(dataset, fname)
 }
 \arguments{
-\item{x}{object of class \code{lgb.Dataset}}
+\item{dataset}{object of class \code{lgb.Dataset}}
 
 \item{fname}{object filename of output file}
 }

@@ -10,6 +10,12 @@ construct.lgb.Dataset(dataset)
 \item{dataset}{Object of class \code{lgb.Dataset}}
 }
 \description{
-Returns NULL
+Construct Dataset explicit
+}
+\examples{
+data(agaricus.train, package='lightgbm')
+train <- agaricus.train
+dtrain <- lgb.Dataset(train$data, label=train$label)
+construct.lgb.Dataset(dtrain)
 }
 

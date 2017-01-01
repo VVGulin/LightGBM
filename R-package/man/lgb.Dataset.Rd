@@ -5,8 +5,7 @@
 \title{Contruct lgb.Dataset object}
 \usage{
 lgb.Dataset(data, params = list(), reference = NULL, colnames = NULL,
-  categorical_feature = NULL, predictor = NULL, free_raw_data = TRUE,
-  used_indices = NULL, info = list(), ...)
+  categorical_feature = NULL, free_raw_data = TRUE, info = list(), ...)
 }
 \arguments{
 \item{data}{a \code{matrix} object, a \code{dgCMatrix} object or a character representing a filename}
@@ -15,9 +14,9 @@ lgb.Dataset(data, params = list(), reference = NULL, colnames = NULL,
 
 \item{reference}{reference dataset}
 
-\item{categorical_feature}{categorical features}
+\item{colnames}{names of columns}
 
-\item{predictor}{initial predictor}
+\item{categorical_feature}{categorical features}
 
 \item{free_raw_data}{TRUE for need to free raw data after construct}
 
@@ -25,8 +24,11 @@ lgb.Dataset(data, params = list(), reference = NULL, colnames = NULL,
 
 \item{...}{other information to pass to \code{info}.}
 }
+\value{
+constructed dataset
+}
 \description{
-Contruct lgb.Dataset object from dense matrix, sparse matrix 
+Contruct lgb.Dataset object from dense matrix, sparse matrix
 or local file (that was created previously by saving an \code{lgb.Dataset}).
 }
 \examples{

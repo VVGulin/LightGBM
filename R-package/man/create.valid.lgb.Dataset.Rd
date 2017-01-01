@@ -7,13 +7,16 @@
 create.valid.lgb.Dataset(dataset, data, info = list(), ...)
 }
 \arguments{
-\item{dataset}{lgb.Dataset object, training data}
+\item{dataset}{\code{lgb.Dataset} object, training data}
 
 \item{data}{a \code{matrix} object, a \code{dgCMatrix} object or a character representing a filename}
 
 \item{info}{a list of information of the lgb.Dataset object}
 
 \item{...}{other information to pass to \code{info}.}
+}
+\value{
+constructed dataset
 }
 \description{
 Contruct a validation data according to training data
@@ -22,7 +25,8 @@ Contruct a validation data according to training data
 data(agaricus.train, package='lightgbm')
 train <- agaricus.train
 dtrain <- lgb.Dataset(train$data, label=train$label)
-lgb.Dataset.save(dtrain, 'lgb.Dataset.data')
-dtrain <- lgb.Dataset('lgb.Dataset.data')
+data(agaricus.test, package='lightgbm')
+test <- agaricus.test
+dtest <- create.valid.lgb.Dataset(dtrain, test$data, label=test$label)
 }
 

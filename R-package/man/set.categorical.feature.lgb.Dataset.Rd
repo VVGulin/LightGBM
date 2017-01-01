@@ -4,10 +4,10 @@
 \alias{set.categorical.feature.lgb.Dataset}
 \title{set categorical feature of \code{lgb.Dataset}}
 \usage{
-set.categorical.feature.lgb.Dataset(x, categorical_feature)
+set.categorical.feature.lgb.Dataset(dataset, categorical_feature)
 }
 \arguments{
-\item{x}{object of class \code{lgb.Dataset}}
+\item{dataset}{object of class \code{lgb.Dataset}}
 
 \item{categorical_feature}{categorical features}
 }
