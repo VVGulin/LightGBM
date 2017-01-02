@@ -7,8 +7,9 @@ from __future__ import absolute_import
 
 import sys
 import ctypes
-import tempfile
 import json
+from tempfile import NamedTemporaryFile
+import os
 
 import numpy as np
 import scipy.sparse
@@ -130,6 +131,22 @@ def param_dict_to_str(data):
             raise TypeError('Unknown type of parameter:%s, got:%s'
                             % (key, type(val).__name__))
     return ' '.join(pairs)
+
+class _temp_file:
+    def __enter__(self):
+        with NamedTemporaryFile(prefix="lightgbm_tmp_", delete=True) as f:
+            self.name = f.name
+        return self
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if os.path.isfile(self.name):
+            os.remove(self.name)
+    def readlines(self):
+        with open(self.name, "r+") as f:
+            ret = f.readlines()
+        return ret
+    def writelines(self, lines):
+        with open(self.name, "w+") as f:
+            ret = f.writelines(lines)
 
 """marco definition of data type in c_api of LightGBM"""
 C_API_DTYPE_FLOAT32 = 0
@@ -276,16 +293,15 @@ class _InnerPredictor(object):
         if num_iteration > self.num_total_iteration:
             num_iteration = self.num_total_iteration
         if is_str(data):
-            tmp_pred_fname = tempfile.NamedTemporaryFile(prefix="lightgbm_tmp_pred_").name
-            _safe_call(_LIB.LGBM_BoosterPredictForFile(
-                self.handle,
-                c_str(data),
-                int_data_has_header,
-                predict_type,
-                num_iteration,
-                c_str(tmp_pred_fname)))
-            with open(tmp_pred_fname, "r") as tmp_file:
-                lines = tmp_file.readlines()
+            with _temp_file() as f:
+                _safe_call(_LIB.LGBM_BoosterPredictForFile(
+                    self.handle,
+                    c_str(data),
+                    int_data_has_header,
+                    predict_type,
+                    num_iteration,
+                    c_str(f.name)))
+                lines = f.readlines()
                 nrow = len(lines)
                 preds = [float(token) for line in lines for token in line.split('\t')]
                 preds = np.array(preds, dtype=np.float64, copy=False)
@@ -1333,6 +1349,39 @@ class Booster(object):
         if self.handle is not None:
             _safe_call(_LIB.LGBM_BoosterFree(self.handle))
 
+    def __copy__(self):
+        return self.__deepcopy__(None)
+
+    def __deepcopy__(self, _):
+        with _temp_file() as f:
+            self.save_model(f.name)
+            return Booster(model_file=f.name)
+
+    def __getstate__(self):
+        this = self.__dict__.copy()
+        handle = this['handle']
+        this.pop('train_set', None)
+        this.pop('valid_sets', None)
+        if handle is not None:
+            with _temp_file() as f:
+                self.save_model(f.name)
+                this["handle"] = f.readlines()
+        return this
+
+    def __setstate__(self, state):
+        model = state['handle']
+        if model is not None:
+            handle = ctypes.c_void_p()
+            out_num_iterations = ctypes.c_int64(0)
+            with _temp_file() as f:
+                f.writelines(model)
+                _safe_call(_LIB.LGBM_BoosterCreateFromModelfile(
+                    c_str(f.name),
+                    ctypes.byref(out_num_iterations),
+                    ctypes.byref(handle)))
+            state['handle'] = handle
+        self.__dict__.update(state)
+
     def set_train_data_name(self, name):
         self.__train_data_name = name
 
@@ -1537,27 +1586,37 @@ class Booster(object):
         filename : str
             Filename to save
         num_iteration: int
-            Number of iteration that want to save. < 0 means save all
+            Number of iteration that want to save. < 0 means save the best iteration(if have)
         """
+        if num_iteration <= 0:
+            num_iteration = self.best_iteration
         _safe_call(_LIB.LGBM_BoosterSaveModel(
             self.handle,
             num_iteration,
             c_str(filename)))
 
-    def dump_model(self):
+    def dump_model(self, num_iteration=-1):
         """
         Dump model to json format
+
+        Parameters
+        ----------
+        num_iteration: int
+            Number of iteration that want to dump. < 0 means dump to best iteration(if have)
 
         Returns
         -------
         Json format of model
         """
+        if num_iteration <= 0:
+            num_iteration = self.best_iteration
         buffer_len = 1 << 20
         tmp_out_len = ctypes.c_int64(0)
         string_buffer = ctypes.create_string_buffer(buffer_len)
         ptr_string_buffer = ctypes.c_char_p(*[ctypes.addressof(string_buffer)])
         _safe_call(_LIB.LGBM_BoosterDumpModel(
             self.handle,
+            num_iteration,
             buffer_len,
             ctypes.byref(tmp_out_len),
             ptr_string_buffer))
@@ -1568,9 +1627,10 @@ class Booster(object):
             ptr_string_buffer = ctypes.c_char_p(*[ctypes.addressof(string_buffer)])
             _safe_call(_LIB.LGBM_BoosterDumpModel(
                 self.handle,
+                num_iteration,
                 actual_len,
                 ctypes.byref(tmp_out_len),
-                ctypes.byref(ptr_string_buffer)))
+                ptr_string_buffer))
         return json.loads(string_buffer.value.decode())
 
     def predict(self, data, num_iteration=-1, raw_score=False, pred_leaf=False, data_has_header=False, is_reshape=True):
@@ -1583,7 +1643,7 @@ class Booster(object):
             Data source for prediction
             When data type is string, it represents the path of txt file
         num_iteration : int
-            Used iteration for prediction
+            Used iteration for prediction, < 0 means predict for best iteration(if have)
         raw_score : bool
             True for predict raw score
         pred_leaf : bool
@@ -1598,6 +1658,8 @@ class Booster(object):
         Prediction result
         """
         predictor = _InnerPredictor(booster_handle=self.handle)
+        if num_iteration <= 0:
+            num_iteration = self.best_iteration
         return predictor.predict(data, num_iteration, raw_score, pred_leaf, data_has_header, is_reshape)
 
     def _to_predictor(self):

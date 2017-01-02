@@ -1,23 +1,44 @@
 # coding: utf-8
+# pylint: skip-file
+import unittest, tempfile, os
 import numpy as np
-from sklearn import datasets, metrics, model_selection
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split
 import lightgbm as lgb
 
-X, Y = datasets.make_classification(n_samples=100000, n_features=100)
-x_train, x_test, y_train, y_test = model_selection.train_test_split(X, Y, test_size=0.1)
+class TestBasic(unittest.TestCase):
 
-train_data = lgb.Dataset(x_train, max_bin=255, label=y_train)
+    def test(self):
+        X_train, X_test, y_train, y_test = train_test_split(*load_breast_cancer(True), test_size=0.1, random_state=1)
+        train_data = lgb.Dataset(X_train, max_bin=255, label=y_train)
+        valid_data = train_data.create_valid(X_test, label=y_test)
 
-valid_data = train_data.create_valid(x_test, label=y_test)
+        params = {
+            "objective" : "binary",
+            "metric" : "auc",
+            "min_data" : 1,
+            "num_leaves" : 15,
+            "verbose" : -1
+        }
+        bst = lgb.Booster(params, train_data)
+        bst.add_valid(valid_data, "valid_1")
 
-config={"objective":"binary","metric":"auc", "min_data":1, "num_leaves":15}
-bst = lgb.Booster(params=config, train_set=train_data)
-bst.add_valid(valid_data,"valid_1")
+        for i in range(30):
+            bst.update()
+            if i % 10 == 0:
+                print(bst.eval_train(), bst.eval_valid())
+        bst.save_model("model.txt")
+        pred_from_matr = bst.predict(X_test)
+        with tempfile.NamedTemporaryFile() as f:
+            tname = f.name
+        with open(tname, "w+b") as f:
+            np.savetxt(f, X_test, delimiter=',')
+        pred_from_file = bst.predict(tname)
+        os.remove(tname)
+        self.assertEqual(len(pred_from_matr), len(pred_from_file))
+        for preds in zip(pred_from_matr, pred_from_file):
+            self.assertAlmostEqual(*preds, places=5)
 
-for i in range(100):
-	bst.update()
-	if i % 10 == 0:
-		print(bst.eval_train())
-		print(bst.eval_valid())
-bst.save_model("model.txt")
-
+print("----------------------------------------------------------------------")
+print("running test_basic.py")
+unittest.main()

@@ -17,9 +17,9 @@
 namespace LightGBM {
 
 GBDT::GBDT() 
-  :num_iteration_for_pred_(0), 
+  :iter_(0),
+  num_iteration_for_pred_(0),
   num_init_iteration_(0) {
-
 }
 
 GBDT::~GBDT() {
@@ -245,7 +245,7 @@ bool GBDT::TrainOneIter(const score_t* gradient, const score_t* hessian, bool is
 }
 
 void GBDT::RollbackOneIter() {
-  if (iter_ == 0) { return; }
+  if (iter_ <= 0) { return; }
   int cur_iter = iter_ + num_init_iteration_ - 1;
   // reset score
   for (int curr_class = 0; curr_class < num_class_; ++curr_class) {
@@ -428,7 +428,7 @@ void GBDT::Boosting() {
     GetGradients(GetTrainingScore(&num_score), gradients_.data(), hessians_.data());
 }
 
-std::string GBDT::DumpModel() const {
+std::string GBDT::DumpModel(int num_iteration) const {
   std::stringstream str_buf;
 
   str_buf << "{";
@@ -449,7 +449,11 @@ std::string GBDT::DumpModel() const {
      << std::endl;
 
   str_buf << "\"tree_info\":[";
-  for (int i = 0; i < static_cast<int>(models_.size()); ++i) {
+  int num_used_model = static_cast<int>(models_.size());
+  if (num_iteration > 0) {
+    num_used_model = std::min(num_iteration * num_class_, num_used_model);
+  } 
+  for (int i = 0; i < num_used_model; ++i) {
     if (i > 0) {
       str_buf << ",";
     }
@@ -491,13 +495,10 @@ void GBDT::SaveModelToFile(int num_iteration, const char* filename) const {
   output_file << "feature_names=" << Common::Join(feature_names.get(), " ") << std::endl;
 
   output_file << std::endl;
-  int num_used_model = 0;
-  if (num_iteration <= 0) {
-    num_used_model = static_cast<int>(models_.size());
-  } else {
-    num_used_model = num_iteration * num_class_;
+  int num_used_model = static_cast<int>(models_.size());
+  if (num_iteration > 0) {
+    num_used_model = std::min(num_iteration * num_class_, num_used_model);
   }
-  num_used_model = std::min(num_used_model, static_cast<int>(models_.size()));
   // output tree models
   for (int i = 0; i < num_used_model; ++i) {
     output_file << "Tree=" << i << std::endl;
@@ -580,6 +581,7 @@ void GBDT::LoadModelFromString(const std::string& model_str) {
   Log::Info("Finished loading %d models", models_.size());
   num_iteration_for_pred_ = static_cast<int>(models_.size()) / num_class_;
   num_init_iteration_ = num_iteration_for_pred_;
+  iter_ = 0;
 }
 
 std::vector<std::pair<size_t, std::string>> GBDT::FeatureImportance() const {
