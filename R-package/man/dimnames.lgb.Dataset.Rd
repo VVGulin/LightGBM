@@ -16,7 +16,7 @@
 and the second one is column names}
 }
 \description{
-Only column names are supported for \code{lgb.Dataset}, thus setting of 
+Only column names are supported for \code{lgb.Dataset}, thus setting of
 row names would have no effect and returnten row names would be NULL.
 }
 \details{

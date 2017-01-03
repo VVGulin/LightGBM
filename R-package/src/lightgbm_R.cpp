@@ -228,12 +228,13 @@ SEXP LGBM_DatasetGetField_R(SEXP handle,
   const void* res;
   CHECK_CALL(LGBM_DatasetGetField(R_ExternalPtrAddr(handle), name, &out_len, &res, &out_type));
 
-  if (out_type == C_API_DTYPE_INT32) {
-    ret = PROTECT(allocVector(INTSXP, out_len));
+  if (!strcmp("group", name) || !strcmp("query", name)) {
+    ret = PROTECT(allocVector(INTSXP, out_len - 1));
     auto p_data = reinterpret_cast<const int32_t*>(res);
+    // convert from boundaries to size
 #pragma omp parallel for schedule(static)
-    for (int64_t i = 0; i < out_len; ++i) {
-      INTEGER(ret)[i] = p_data[i];
+    for (int64_t i = 0; i < out_len - 1; ++i) {
+      INTEGER(ret)[i] = p_data[i + 1] - p_data[i];
     }
   } else {
     ret = PROTECT(allocVector(REALSXP, out_len));

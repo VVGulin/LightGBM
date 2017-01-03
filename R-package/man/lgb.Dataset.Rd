@@ -22,7 +22,7 @@ lgb.Dataset(data, params = list(), reference = NULL, colnames = NULL,
 
 \item{info}{a list of information of the lgb.Dataset object}
 
-\item{...}{other information to pass to \code{info}.}
+\item{...}{other information to pass to \code{info} or parameters pass to \code{params}}
 }
 \value{
 constructed dataset

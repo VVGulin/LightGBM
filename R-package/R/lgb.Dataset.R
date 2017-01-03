@@ -3,7 +3,7 @@ Dataset <- R6Class(
   public = list(
     handle = NULL,
     raw_data = NULL,
-    params = NULL,
+    params = list(),
     reference = NULL,
     colnames = NULL,
     categorical_feature = NULL,
@@ -21,15 +21,22 @@ Dataset <- R6Class(
                           used_indices = NULL,
                           info = list(),
                           ...) {
-      info <- append(info, list(...))
+      addiction_params = list(...)
+      for (key in names(addiction_params)) {
+        if (key %in% c('label', 'weight', 'init_score', 'group')) {
+          info$key <- addiction_params$key
+        } else {
+          params$key <- addiction_params$key
+        }
+      }
       if (!is.null(reference)) {
         if (!lgb.check.r6.class(reference, "lgb.Dataset")) {
-          stop("Only can use lgb.Dataset as reference")
+          stop("lgb.Dataset: Only can use lgb.Dataset as reference")
         }
       }
       if (!is.null(predictor)) {
         if (!lgb.check.r6.class(predictor, "lgb.Predictor")) {
-          stop("Only can use lgb.Predictor as predictor")
+          stop("lgb.Dataset: Only can use lgb.Predictor as predictor")
         }
       }
       self$raw_data <- data
@@ -44,7 +51,6 @@ Dataset <- R6Class(
       self$info <- info
     },
     create_valid = function(data, info = list(),  ...) {
-      info <- append(info, list(...))
       ret <- Dataset$new(
         data,
         self$params,
@@ -54,7 +60,8 @@ Dataset <- R6Class(
         self$predictor,
         self$free_raw_data,
         NULL,
-        info
+        info,
+        ...
       )
       return(ret)
     },
@@ -94,11 +101,11 @@ Dataset <- R6Class(
             if (is.null(idx)) {
               stop(paste("lgb.self.get.handle: cannot find feature name ", key))
             }
-            cate_indices <- append(cate_indices, idx)
+            cate_indices <- c(cate_indices, idx)
           } else {
             # one-based indices to zero-based
             idx <- as.integer(key - 1)
-            cate_indices <- append(cate_indices, idx)
+            cate_indices <- c(cate_indices, idx)
           }
         }
         self$params$categorical_feature <- cate_indices
@@ -216,15 +223,15 @@ Dataset <- R6Class(
         return(dim(self$raw_data))
       } else {
         stop(
-          "cannot get Dimensions before dataset constructed, please call construct.lgb.Dataset explicit"
+          "dim: cannot get Dimensions before dataset constructed, please call construct.lgb.Dataset explicit"
         )
       }
     },
     get_colnames = function() {
       if (is.null(self$colnames) & !is.null(self$handle)) {
         cnames <- .Call("LGBM_DatasetGetFeatureNames_R",
-              self$handle,
-              PACKAGE = "lightgbm")
+                        self$handle,
+                        PACKAGE = "lightgbm")
         self$colnames <- as.list(cnames)
       }
       return(self$colnames)
@@ -248,14 +255,14 @@ Dataset <- R6Class(
           "    'label', 'weight', 'init_score', 'group'"
         )
       }
-      if (is.null(self$info$name) & !is.null(self$handle)) {
+      if (is.null(self$info[[name]]) & !is.null(self$handle)) {
         ret <-
           .Call("LGBM_DatasetGetField_R", self$handle, name, PACKAGE = "lightgbm")
         if (length(ret) > 0) {
-          self$info$name <- ret
+          self$info[[name]] <- ret
         }
       }
-      return(self$info$name)
+      return(self$info[[name]])
     },
     setinfo = function(name, info) {
       if (typeof(name) != "character" ||
@@ -271,17 +278,17 @@ Dataset <- R6Class(
       } else {
         info <- as.numeric(info)
       }
-      self$info$name <- info
+      self$info[[name]] <- info
       if (!is.null(self$handle)) {
         .Call("LGBM_DatasetSetField_R",
               self$handle,
               name,
-              self$info$name,
+              self$info[[name]],
               PACKAGE = "lightgbm")
       }
       return(self)
     },
-    slice = function(idxset) {
+    slice = function(idxset, ...) {
       ret <- Dataset$new(
         NULL,
         self$params,
@@ -291,65 +298,66 @@ Dataset <- R6Class(
         self$predictor,
         self$free_raw_data,
         idxset,
-        NULL
+        NULL,
+        ...
       )
       return(ret)
     },
     set_categorical_feature = function(categorical_feature) {
-      if(self$set_categorical_feature == set_categorical_feature){
+      if (identical(self$set_categorical_feature, set_categorical_feature)) {
         return(self)
       }
       if (is.null(self$raw_data)) {
         stop(
-          "cannot set categorical feature after free raw data,
+          "set_categorical_feature: cannot set categorical feature after free raw data,
           please set free_raw_data=FALSE when construct lgb.Dataset"
         )
       }
       self$categorical_feature <- categorical_feature
       self$handle <- NULL
       return(self)
-    },
+      },
     set_predictor = function(predictor) {
-      if(self$predictor == predictor){
+      if (identical(self$predictor, predictor)) {
         return(self)
       }
       if (is.null(self$raw_data)) {
         stop(
-          "cannot set predictor after free raw data,
+          "set_predictor: cannot set predictor after free raw data,
           please set free_raw_data=FALSE when construct lgb.Dataset"
         )
       }
       if (!is.null(predictor)) {
         if (!lgb.check.r6.class(predictor, "lgb.Predictor")) {
-          stop("Only can use lgb.Predictor as predictor")
+          stop("set_predictor: Only can use lgb.Predictor as predictor")
         }
       }
       self$predictor <- predictor
       self$handle <- NULL
       return(self)
-    },
+      },
     set_reference = function(reference) {
       self$set_categorical_feature(reference$categorical_feature)
       self$set_colnames(reference$colnames)
       self$set_predictor(reference$predictor)
-      if(self$reference == reference){
+      if (identical(self$reference, reference)) {
         return(self)
       }
       if (is.null(self$raw_data)) {
         stop(
-          "cannot set reference after free raw data,
+          "set_reference: cannot set reference after free raw data,
           please set free_raw_data=FALSE when construct lgb.Dataset"
         )
       }
       if (!is.null(reference)) {
         if (!lgb.check.r6.class(reference, "lgb.Dataset")) {
-          stop("Only can use lgb.Dataset as reference")
+          stop("set_reference: Only can use lgb.Dataset as reference")
         }
       }
       self$reference <- reference
       self$handle <- NULL
       return(self)
-    },
+      },
     save_binary = function(fname) {
       self$construct()
       .Call("LGBM_DatasetSaveBinary_R", self$handle, fname, PACKAGE = "lightgbm")
@@ -370,7 +378,7 @@ Dataset <- R6Class(
 #' @param categorical_feature categorical features
 #' @param free_raw_data TRUE for need to free raw data after construct
 #' @param info a list of information of the lgb.Dataset object
-#' @param ... other information to pass to \code{info}.
+#' @param ... other information to pass to \code{info} or parameters pass to \code{params}
 #' @return constructed dataset
 #' @examples
 #' data(agaricus.train, package='lightgbm')
@@ -461,14 +469,14 @@ dim.lgb.Dataset <- function(dataset, ...) {
 }
 
 #' Handling of column names of \code{lgb.Dataset}
-#' 
-#' Only column names are supported for \code{lgb.Dataset}, thus setting of 
+#'
+#' Only column names are supported for \code{lgb.Dataset}, thus setting of
 #' row names would have no effect and returnten row names would be NULL.
-#' 
+#'
 #' @param x object of class \code{lgb.Dataset}
 #' @param value a list of two elements: the first one is ignored
-#'        and the second one is column names 
-#' 
+#'        and the second one is column names
+#'
 #' @details
 #' Generic \code{dimnames} methods are used by \code{colnames}.
 #' Since row names are irrelevant, it is recommended to use \code{colnames} directly.
@@ -481,7 +489,7 @@ dim.lgb.Dataset <- function(dataset, ...) {
 #' colnames(dtrain)
 #' colnames(dtrain) <- make.names(1:ncol(train$data))
 #' print(dtrain, verbose=TRUE)
-#' 
+#'
 #' @rdname dimnames.lgb.Dataset
 #' @export
 dimnames.lgb.Dataset <- function(x) {
@@ -499,9 +507,12 @@ dimnames.lgb.Dataset <- function(x) {
     x$set_colnames(NULL)
     return(x)
   }
-  if (ncol(x) != length(value[[2]])) 
-    stop("can't assign ", length(value[[2]]), " colnames to a ", 
-         ncol(x), " column lgb.Dataset")
+  if (ncol(x) != length(value[[2]]))
+    stop("can't assign ",
+         length(value[[2]]),
+         " colnames to a ",
+         ncol(x),
+         " column lgb.Dataset")
   x$set_colnames(value[2])
   return(x)
 }
@@ -532,7 +543,7 @@ slice <- function(object, ...)
 #' @rdname slice
 #' @export
 slice.lgb.Dataset <- function(object, idxset, ...) {
-  object$slice(idxset)
+  object$slice(idxset, ...)
 }
 
 
@@ -626,7 +637,7 @@ lgb.Dataset.set.categorical <-
 #' @param dataset object of class \code{lgb.Dataset}
 #' @param reference object of class \code{lgb.Dataset}
 #' @return passed dataset
-#' @rdname lgb.Dataset.set.reference 
+#' @rdname lgb.Dataset.set.reference
 #' @export
 lgb.Dataset.set.reference <- function(dataset, reference) {
   dataset$set_reference(reference)

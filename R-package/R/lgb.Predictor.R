@@ -8,7 +8,7 @@ Predictor <- R6Class(
       } else if (typeof(modelfile) == "lgb.Booster.handle") {
         handle <- modelfile
       } else {
-        stop("modelfile must be either character filename, or lgb.Booster.handle")
+        stop("lgb.Predictor: modelfile must be either character filename, or lgb.Booster.handle")
       }
       class(handle) <- "lgb.Booster.handle"
       self$handle <- handle
@@ -16,10 +16,11 @@ Predictor <- R6Class(
 
     predict = function(data, 
       num_iteration = NULL, rawscore = FALSE, predleaf = FALSE, header = FALSE, 
-      reshape = FALSE, ...) {
+      reshape = FALSE) {
 
       if (is.null(num_iteration)) {
         num_iteration <- -1
+        
       }
 
       num_row <- 0
@@ -45,12 +46,12 @@ Predictor <- R6Class(
           PACKAGE = "lightgbm")
         num_row <- nrow(data)
       } else {
-        stop(paste("predict.lgb.Predictor: does not support to predict from ",
+        stop(paste("predict: does not support to predict from ",
                    typeof(data)))
       }
 
       if (length(ret) %% num_row != 0) {
-        stop("prediction length ", length(ret)," is not multiple of nrows(data) ", num_row)
+        stop("predict: prediction length ", length(ret)," is not multiple of nrows(data) ", num_row)
       }
       npred_per_case <- length(ret) / num_row
       if (reshape && npred_per_case > 1) {
