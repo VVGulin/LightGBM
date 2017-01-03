@@ -1,6 +1,3 @@
-#' Predictor of LightGBM
-#' Not expose, only for package internal use
-#'
 Predictor <- R6Class(
   "lgb.Predictor",
   public = list(

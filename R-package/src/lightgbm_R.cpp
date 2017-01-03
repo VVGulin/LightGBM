@@ -160,6 +160,30 @@ SEXP LGBM_DatasetSetFeatureNames_R(SEXP handle,
   return R_NilValue;
 }
 
+SEXP LGBM_DatasetGetFeatureNames_R(SEXP handle){
+  SEXP ret;
+  R_API_BEGIN();
+  int64_t len = 0;
+  CHECK_CALL(LGBM_DatasetGetNumFeature(R_ExternalPtrAddr(handle), &len));
+  std::vector<std::unique_ptr<char[]>> names(len);
+  std::vector<char*> ptr_names(len);
+  for (int i = 0; i < len; ++i) {
+    names[i].reset(new char[128]);
+    ptr_names[i] = names[i].get();
+  }
+  int64_t out_len;
+  CHECK_CALL(LGBM_DatasetGetFeatureNames(R_ExternalPtrAddr(handle),
+    ptr_names.data(), &out_len));
+  RCHECK(len == out_len);
+  ret = PROTECT(allocVector(STRSXP, out_len));
+  for (int i = 0; i < out_len; ++i) {
+    SET_STRING_ELT(ret, i, mkChar(names[i].get()));
+  }
+  R_API_END();
+  UNPROTECT(1);
+  return ret;
+}
+
 SEXP LGBM_DatasetSaveBinary_R(SEXP handle,
   SEXP filename) {
   R_API_BEGIN();
@@ -540,17 +564,18 @@ SEXP LGBM_BoosterSaveModel_R(SEXP handle,
   return R_NilValue;
 }
 
-SEXP LGBM_BoosterDumpModel_R(SEXP handle) {
+SEXP LGBM_BoosterDumpModel_R(SEXP handle,
+  SEXP num_iteration) {
   std::unique_ptr<char[]> buf;
   R_API_BEGIN();
   int buffer_len = 1024 * 1024;
   buf.reset(new char[buffer_len]);
   int64_t out_len = 0;
-  CHECK_CALL(LGBM_BoosterDumpModel(R_ExternalPtrAddr(handle), buffer_len, &out_len, buf.get()));
+  CHECK_CALL(LGBM_BoosterDumpModel(R_ExternalPtrAddr(handle), asInteger(num_iteration), buffer_len, &out_len, buf.get()));
   if (out_len > buffer_len) {
     buffer_len = out_len;
     buf.reset(new char[buffer_len]);
-    CHECK_CALL(LGBM_BoosterDumpModel(R_ExternalPtrAddr(handle), buffer_len, &out_len, buf.get()));
+    CHECK_CALL(LGBM_BoosterDumpModel(R_ExternalPtrAddr(handle), asInteger(num_iteration), buffer_len, &out_len, buf.get()));
   }
   R_API_END();
   return mkChar(buf.get());

@@ -78,6 +78,12 @@ DllExport SEXP LGBM_DatasetGetSubset_R(SEXP handle,
 DllExport SEXP LGBM_DatasetSetFeatureNames_R(SEXP handle,
   SEXP feature_names);
 
+/*!
+* \brief save feature names to Dataset
+* \param handle handle
+* \return feature names
+*/
+DllExport SEXP LGBM_DatasetGetFeatureNames_R(SEXP handle);
 
 /*!
 * \brief save dateset to binary file
@@ -327,8 +333,10 @@ DllExport SEXP LGBM_BoosterSaveModel_R(SEXP handle,
 /*!
 * \brief dump model to json
 * \param handle handle
+* \param num_iteration, <= 0 means save all
 * \return json format string of model
 */
-DllExport SEXP LGBM_BoosterDumpModel_R(SEXP handle);
+DllExport SEXP LGBM_BoosterDumpModel_R(SEXP handle,
+  SEXP num_iteration);
 
 #endif // LIGHTGBM_R_H_

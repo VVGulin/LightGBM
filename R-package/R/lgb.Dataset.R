@@ -1,8 +1,3 @@
-#' Dataset class of LightGBM
-#'
-#' The Dataset used in LightGBM is a high memory efficient object.
-#' The LightGBM only accept Dataset object for training
-#'
 Dataset <- R6Class(
   "lgb.Dataset",
   public = list(
@@ -225,6 +220,15 @@ Dataset <- R6Class(
         )
       }
     },
+    get_colnames = function() {
+      if (is.null(self$colnames) & !is.null(self$handle)) {
+        cnames <- .Call("LGBM_DatasetGetFeatureNames_R",
+              self$handle,
+              PACKAGE = "lightgbm")
+        self$colnames <- as.list(cnames)
+      }
+      return(self$colnames)
+    },
     set_colnames = function(colnames) {
       self$colnames <- as.list(colnames)
       if (!is.null(self$colnames) & !is.null(self$handle)) {
@@ -372,9 +376,9 @@ Dataset <- R6Class(
 #' data(agaricus.train, package='lightgbm')
 #' train <- agaricus.train
 #' dtrain <- lgb.Dataset(train$data, label=train$label)
-#' save.binary.lgb.Dataset(dtrain, 'lgb.Dataset.data')
+#' lgb.Dataset.save(dtrain, 'lgb.Dataset.data')
 #' dtrain <- lgb.Dataset('lgb.Dataset.data')
-#' construct.lgb.Dataset(dtrain)
+#' lgb.Dataset.construct(dtrain)
 #' @export
 lgb.Dataset <- function(data,
                         params = list(),
@@ -410,9 +414,9 @@ lgb.Dataset <- function(data,
 #' dtrain <- lgb.Dataset(train$data, label=train$label)
 #' data(agaricus.test, package='lightgbm')
 #' test <- agaricus.test
-#' dtest <- create.valid.lgb.Dataset(dtrain, test$data, label=test$label)
+#' dtest <- lgb.Dataset.create.valid(dtrain, test$data, label=test$label)
 #' @export
-create.valid.lgb.Dataset <-
+lgb.Dataset.create.valid <-
   function(dataset, data, info = list(),  ...) {
     dataset$create_valid(data, info, ...)
   }
@@ -424,9 +428,9 @@ create.valid.lgb.Dataset <-
 #' data(agaricus.train, package='lightgbm')
 #' train <- agaricus.train
 #' dtrain <- lgb.Dataset(train$data, label=train$label)
-#' construct.lgb.Dataset(dtrain)
+#' lgb.Dataset.construct(dtrain)
 #' @export
-construct.lgb.Dataset <- function(dataset) {
+lgb.Dataset.construct <- function(dataset) {
   dataset$construct()
 }
 
@@ -456,14 +460,50 @@ dim.lgb.Dataset <- function(dataset, ...) {
   dataset$dim()
 }
 
-#' Get column names of \code{lgb.Dataset}
-#' @param dataset object of class \code{lgb.Dataset}
-#' @param ... other parameters
-#' @return column names
-#' @rdname colnames
+#' Handling of column names of \code{lgb.Dataset}
+#' 
+#' Only column names are supported for \code{lgb.Dataset}, thus setting of 
+#' row names would have no effect and returnten row names would be NULL.
+#' 
+#' @param x object of class \code{lgb.Dataset}
+#' @param value a list of two elements: the first one is ignored
+#'        and the second one is column names 
+#' 
+#' @details
+#' Generic \code{dimnames} methods are used by \code{colnames}.
+#' Since row names are irrelevant, it is recommended to use \code{colnames} directly.
+#'
+#' @examples
+#' data(agaricus.train, package='lightgbm')
+#' train <- agaricus.train
+#' dtrain <- lgb.Dataset(train$data, label=train$label)
+#' dimnames(dtrain)
+#' colnames(dtrain)
+#' colnames(dtrain) <- make.names(1:ncol(train$data))
+#' print(dtrain, verbose=TRUE)
+#' 
+#' @rdname dimnames.lgb.Dataset
 #' @export
-colnames.lgb.Dataset <- function(dataset, ...) {
-  dataset$colnames
+dimnames.lgb.Dataset <- function(x) {
+  list(NULL, x$get_colnames())
+}
+
+#' @rdname dimnames.lgb.Dataset
+#' @export
+`dimnames<-.lgb.Dataset` <- function(x, value) {
+  if (!is.list(value) || length(value) != 2L)
+    stop("invalid 'dimnames' given: must be a list of two elements")
+  if (!is.null(value[[1L]]))
+    stop("lgb.Dataset does not have rownames")
+  if (is.null(value[[2]])) {
+    x$set_colnames(NULL)
+    return(x)
+  }
+  if (ncol(x) != length(value[[2]])) 
+    stop("can't assign ", length(value[[2]]), " colnames to a ", 
+         ncol(x), " column lgb.Dataset")
+  x$set_colnames(value[2])
+  return(x)
 }
 
 #' Get a new Dataset containing the specified rows of
@@ -575,9 +615,9 @@ setinfo.lgb.Dataset <- function(object, name, info, ...) {
 #' @param dataset object of class \code{lgb.Dataset}
 #' @param categorical_feature categorical features
 #' @return passed dataset
-#' @rdname set.categorical.feature.lgb.Dataset
+#' @rdname lgb.Dataset.set.categorical
 #' @export
-set.categorical.feature.lgb.Dataset <-
+lgb.Dataset.set.categorical <-
   function(dataset, categorical_feature) {
     dataset$set_categorical_feature(categorical_feature)
   }
@@ -586,9 +626,9 @@ set.categorical.feature.lgb.Dataset <-
 #' @param dataset object of class \code{lgb.Dataset}
 #' @param reference object of class \code{lgb.Dataset}
 #' @return passed dataset
-#' @rdname set.reference.lgb.Dataset
+#' @rdname lgb.Dataset.set.reference 
 #' @export
-set.reference.lgb.Dataset <- function(dataset, reference) {
+lgb.Dataset.set.reference <- function(dataset, reference) {
   dataset$set_reference(reference)
 }
 
@@ -596,8 +636,8 @@ set.reference.lgb.Dataset <- function(dataset, reference) {
 #' @param dataset object of class \code{lgb.Dataset}
 #' @param fname object filename of output file
 #' @return passed dataset
-#' @rdname save.binary.lgb.Dataset
+#' @rdname lgb.Dataset.save
 #' @export
-save.binary.lgb.Dataset <- function(dataset, fname) {
+lgb.Dataset.save <- function(dataset, fname) {
   dataset$save_binary(fname)
 }
